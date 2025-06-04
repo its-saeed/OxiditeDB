@@ -1,9 +1,8 @@
+mod statements;
 use anyhow::{anyhow, Result};
 use rustyline::DefaultEditor;
 
-trait Statement {
-    fn execute(&self) -> Result<()>;
-}
+use crate::statements::parse_statement;
 
 trait MetaCommand {
     fn execute(&self) -> Result<()>;
@@ -16,37 +15,10 @@ impl MetaCommand for ExitMetaCommand {
     }
 }
 
-struct InsertStatement;
-struct SelectStatement;
-
-impl Statement for InsertStatement {
-    fn execute(&self) -> Result<()> {
-        println!("Executing insert statement");
-        Ok(())
-    }
-}
-
-impl Statement for SelectStatement {
-    fn execute(&self) -> Result<()> {
-        println!("Executing select statement");
-        Ok(())
-    }
-}
-
 fn parse_meta_command(cmd: &str) -> Result<Box<dyn MetaCommand>> {
     match cmd {
         ".exit" => Ok(Box::new(ExitMetaCommand)),
         cmd => Err(anyhow!("Unrecognized command: {cmd}")),
-    }
-}
-
-fn parse_statement(cmd: &str) -> Result<Box<dyn Statement>> {
-    if cmd.starts_with("select") {
-        Ok(Box::new(SelectStatement))
-    } else if cmd.starts_with("insert") {
-        Ok(Box::new(InsertStatement))
-    } else {
-        Err(anyhow!("Unrecognized command: {cmd}"))
     }
 }
 
