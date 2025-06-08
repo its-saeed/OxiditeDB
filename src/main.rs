@@ -1,4 +1,6 @@
 mod statements;
+mod table;
+
 use anyhow::{anyhow, Result};
 use rustyline::DefaultEditor;
 
@@ -24,6 +26,7 @@ fn parse_meta_command(cmd: &str) -> Result<Box<dyn MetaCommand>> {
 
 fn main() -> Result<()> {
     let mut rl = DefaultEditor::new()?;
+    let mut table = table::Table::new();
     loop {
         let readline = rl.readline("db > ");
         match readline {
@@ -46,7 +49,7 @@ fn main() -> Result<()> {
                 } else {
                     match parse_statement(&line) {
                         Ok(statement) => {
-                            if let Err(e) = statement.execute() {
+                            if let Err(e) = statement.execute(&mut table) {
                                 eprintln!("{e}");
                                 continue;
                             }

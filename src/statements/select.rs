@@ -1,8 +1,12 @@
+use crate::table::Table;
+
 pub struct Select;
 
 impl super::Statement for Select {
-    fn execute(&self) -> anyhow::Result<()> {
-        println!("Executing select statement");
+    fn execute(&self, table: &mut Table) -> anyhow::Result<()> {
+        for row in table.into_iter() {
+            println!("{row}");
+        }
         Ok(())
     }
 }

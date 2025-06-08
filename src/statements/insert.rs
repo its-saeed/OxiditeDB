@@ -1,19 +1,15 @@
-const USERNAME_COLUMN_SIZE: usize = 32;
-const EMAIL_COLUMN_SIZE: usize = 255;
+use crate::table::{Row, Table};
 
-pub struct Row {
-    pub id: u32,
-    pub username: String,
-    pub email: String,
-}
+// const USERNAME_COLUMN_SIZE: usize = 32;
+// const EMAIL_COLUMN_SIZE: usize = 255;
 
 pub struct Insert {
     pub row: Row,
 }
 
 impl super::Statement for Insert {
-    fn execute(&self) -> anyhow::Result<()> {
+    fn execute(&self, table: &mut Table) -> anyhow::Result<()> {
         println!("Executing insert statement");
-        Ok(())
+        Ok(table.insert_row(&self.row)?)
     }
 }

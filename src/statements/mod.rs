@@ -8,10 +8,10 @@ pub use select::Select;
 
 use anyhow::{anyhow, Result};
 
-use crate::statements::insert::Row;
+use crate::table::{Row, Table};
 
 pub trait Statement {
-    fn execute(&self) -> Result<()>;
+    fn execute(&self, table: &mut Table) -> Result<()>;
 }
 
 #[derive(Parser)]
