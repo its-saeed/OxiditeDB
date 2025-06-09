@@ -4,15 +4,16 @@ mod table;
 use anyhow::{anyhow, Result};
 use rustyline::DefaultEditor;
 
-use crate::statements::parse_statement;
+use crate::{statements::parse_statement, table::Table};
 
 trait MetaCommand {
-    fn execute(&self) -> Result<()>;
+    fn execute(&self, table: &Table) -> Result<()>;
 }
 
 struct ExitMetaCommand;
 impl MetaCommand for ExitMetaCommand {
-    fn execute(&self) -> Result<()> {
+    fn execute(&self, table: &Table) -> Result<()> {
+        table.persist()?;
         std::process::exit(0)
     }
 }
@@ -25,8 +26,11 @@ fn parse_meta_command(cmd: &str) -> Result<Box<dyn MetaCommand>> {
 }
 
 fn main() -> Result<()> {
+    let db_path = std::env::args()
+        .nth(1)
+        .ok_or(anyhow!("Please specify the database file path."))?;
     let mut rl = DefaultEditor::new()?;
-    let mut table = table::Table::new();
+    let mut table = table::Table::open(&db_path)?;
     loop {
         let readline = rl.readline("db > ");
         match readline {
@@ -36,7 +40,7 @@ fn main() -> Result<()> {
                 if line.starts_with('.') {
                     match parse_meta_command(&line) {
                         Ok(cmd) => {
-                            if let Err(e) = cmd.execute() {
+                            if let Err(e) = cmd.execute(&table) {
                                 eprintln!("{e}");
                                 continue;
                             }
@@ -48,12 +52,13 @@ fn main() -> Result<()> {
                     }
                 } else {
                     match parse_statement(&line) {
-                        Ok(statement) => {
-                            if let Err(e) = statement.execute(&mut table) {
-                                eprintln!("{e}");
+                        Ok(statement) => match statement.execute(&mut table) {
+                            Ok(_) => println!("Executed"),
+                            Err(e) => {
+                                println!("{e}");
                                 continue;
                             }
-                        }
+                        },
                         Err(e) => {
                             eprintln!("{e}");
                             continue;
@@ -67,5 +72,6 @@ fn main() -> Result<()> {
             }
         }
     }
+
     Ok(())
 }

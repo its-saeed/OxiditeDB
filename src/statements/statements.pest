@@ -2,6 +2,6 @@ INSERT     = { ^"insert" ~ " " ~ ID ~ " " ~ USERNAME ~ " " ~ EMAIL }
 SELECT     = { ^"select"}
 ID         = @{ ASCII_DIGIT+ }
 USERNAME   = @{ ASCII_ALPHANUMERIC+ }
-EMAIL      = @{ ASCII_ALPHANUMERIC+ }
+EMAIL      = @{ ASCII_ALPHANUMERIC+ ~ "@" ~ ASCII_ALPHANUMERIC+ ~ "." ~ ASCII_ALPHANUMERIC+ }
 
 statement = {SOI ~ (INSERT | SELECT) ~ EOI}

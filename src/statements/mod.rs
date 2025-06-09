@@ -19,8 +19,7 @@ pub trait Statement {
 struct StatementParser;
 
 pub fn parse_statement(cmd: &str) -> Result<Box<dyn Statement>> {
-    let statement = StatementParser::parse(Rule::statement, cmd.trim())
-        .unwrap()
+    let statement = StatementParser::parse(Rule::statement, cmd.trim())?
         .next()
         .unwrap();
 

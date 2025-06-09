@@ -9,7 +9,6 @@ pub struct Insert {
 
 impl super::Statement for Insert {
     fn execute(&self, table: &mut Table) -> anyhow::Result<()> {
-        println!("Executing insert statement");
         Ok(table.insert_row(&self.row)?)
     }
 }

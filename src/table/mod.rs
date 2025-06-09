@@ -18,6 +18,7 @@ impl Display for Row {
     }
 }
 
+#[derive(Encode, Decode)]
 struct Page {
     raw: Box<Vec<u8>>,
     index: usize,
@@ -87,9 +88,57 @@ impl<'a> IntoIterator for &'a Page {
     }
 }
 
+struct Pager {
+    pages: Vec<Page>,
+}
+
+impl Pager {
+    fn new(db_filename: &str) -> Result<Self, TableError> {
+        let buffer = std::fs::read(db_filename)?;
+        if buffer.len() == 0 {
+            Ok(Self { pages: vec![] })
+        } else {
+            let config = config::standard();
+            let (pages, _): (Vec<Page>, usize) = bincode::decode_from_slice(&buffer, config)?;
+            Ok(Self { pages })
+        }
+    }
+
+    fn persist(&self, db_filename: &str) -> Result<(), TableError> {
+        let config = config::standard();
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .truncate(true)
+            .open(db_filename)?;
+        bincode::encode_into_std_write(&self.pages, &mut file, config)?;
+        Ok(())
+    }
+
+    fn add_page(&mut self) -> Result<&mut Page, TableError> {
+        if self.pages.len() >= TABLE_MAX_PAGES {
+            return Err(TableError::TableIsFull);
+        }
+        self.pages.push(Page::new());
+        Ok(self.pages.last_mut().unwrap())
+    }
+
+    fn last_mut(&mut self) -> Option<&mut Page> {
+        self.pages.last_mut()
+    }
+
+    fn page_count(&self) -> usize {
+        self.pages.len()
+    }
+
+    fn get(&self, index: usize) -> Option<&Page> {
+        self.pages.get(index)
+    }
+}
+
 pub struct Table {
     num_rows: u32,
-    pages: Vec<Page>,
+    pager: Pager,
+    db_filename: String,
 }
 
 pub struct TableIterator<'a> {
@@ -125,7 +174,7 @@ impl<'a> Iterator for TableIterator<'a> {
         let iter = match self.page_iterator.as_mut() {
             Some(iter) => iter,
             None => {
-                let page = self.table.pages.get(self.page_index)?;
+                let page = self.table.pager.get(self.page_index)?;
                 self.page_iterator = Some(page.into_iter());
                 self.page_iterator.as_mut().unwrap()
             }
@@ -134,10 +183,10 @@ impl<'a> Iterator for TableIterator<'a> {
             Some(row) => Some(row),
             None => {
                 self.page_index += 1;
-                if self.page_index >= self.table.pages.len() {
+                if self.page_index >= self.table.pager.page_count() {
                     return None;
                 }
-                let page = self.table.pages.get(self.page_index)?;
+                let page = self.table.pager.get(self.page_index)?;
                 let mut iter = page.into_iter();
                 iter.next()
             }
@@ -147,16 +196,22 @@ impl<'a> Iterator for TableIterator<'a> {
 
 const TABLE_MAX_PAGES: usize = 100;
 impl Table {
-    pub fn new() -> Self {
-        Self {
+    pub fn open(filename: &str) -> Result<Table, TableError> {
+        Ok(Self {
             num_rows: 0,
-            pages: vec![],
-        }
+            pager: Pager::new(filename)?,
+            db_filename: filename.to_string(),
+        })
     }
+
+    pub fn persist(&self) -> Result<(), TableError> {
+        self.pager.persist(&self.db_filename)
+    }
+
     pub fn insert_row(&mut self, row: &Row) -> Result<(), TableError> {
-        let page = match self.pages.last_mut() {
+        let page = match self.pager.last_mut() {
             Some(page) => page,
-            None => self.add_page()?,
+            None => self.pager.add_page()?,
         };
 
         match page.insert_row(row) {
@@ -165,7 +220,7 @@ impl Table {
                 Ok(())
             }
             Err(TableError::PageIsFull) => {
-                let page = self.add_page()?;
+                let page = self.pager.add_page()?;
                 page.insert_row(row).and_then(|_| {
                     self.num_rows += 1;
                     Ok(())
@@ -173,13 +228,5 @@ impl Table {
             }
             Err(e) => Err(e),
         }
-    }
-
-    fn add_page(&mut self) -> Result<&mut Page, TableError> {
-        if self.pages.len() >= TABLE_MAX_PAGES {
-            return Err(TableError::TableIsFull);
-        }
-        self.pages.push(Page::new());
-        Ok(self.pages.last_mut().unwrap())
     }
 }
